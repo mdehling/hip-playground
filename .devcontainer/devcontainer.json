@@ -1,0 +1,15 @@
+{
+    "name": "dev",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "hostRequirements": {
+        "cpus": 4,
+        "memory": "32gb",
+        "gpu": true,
+        "storage": "64gb"
+    },
+    "runArgs": [
+        "--shm-size=1g"
+    ]
+}
