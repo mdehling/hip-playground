@@ -1,12 +1,18 @@
 export HIP_PLATFORM=nvidia
 
+ifdef USE_HIPBLAS
+CFLAGS=-DUSE_HIPBLAS
 LD_FLAGS=-L/opt/rocm/lib
+LIBS=-lhipblas
+else
+LIBS=-lcublas
+endif
 
 .PHONY: all
 all: axpy
 
 axpy: axpy.cpp
-	hipcc $< -o $@ ${LD_FLAGS} -lhipblas
+	hipcc $< -o $@ ${CFLAGS} ${LD_FLAGS} ${LIBS}
 
 .PHONY: clean
 clean:
