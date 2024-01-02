@@ -12,6 +12,9 @@
 #define blasSaxpy           hipblasSaxpy
 #define blasSgemm           hipblasSgemm
 
+#define BLAS_OP_N           HIPBLAS_OP_N
+#define BLAS_OP_T           HIPBLAS_OP_T
+
 #define blasStatusToString  hipblasStatusToString
 #define BLAS_STATUS_SUCCESS HIPBLAS_STATUS_SUCCESS
 
@@ -26,6 +29,9 @@
 
 #define blasSaxpy           cublasSaxpy
 #define blasSgemm           cublasSgemm
+
+#define BLAS_OP_N           CUBLAS_OP_N
+#define BLAS_OP_T           CUBLAS_OP_T
 
 #define blasStatusToString  cublasGetStatusString
 #define BLAS_STATUS_SUCCESS CUBLAS_STATUS_SUCCESS

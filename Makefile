@@ -9,11 +9,14 @@ LIBS=-lcublas
 endif
 
 .PHONY: all
-all: axpy
+all: axpy gemm
 
 axpy: axpy.cpp
 	hipcc $< -o $@ ${CFLAGS} ${LD_FLAGS} ${LIBS}
 
+gemm: gemm.cpp
+	hipcc $< -o $@ ${CFLAGS} ${LD_FLAGS} ${LIBS}
+
 .PHONY: clean
 clean:
-	rm -f axpy
+	rm -f axpy gemm
