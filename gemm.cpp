@@ -34,10 +34,11 @@ void host_gemm(int m, int n, int k, T alpha, const T *A, int lda, const T *B, in
 
 
 template <typename T>
-T host_max_squared_error(int n, const T *x, int incx, const T *y, int incy) {
+T host_max_squared_error(int m, int n, const T *A, int lda, const T *B, int ldb) {
     T mse{0};
-    for (int i = 0; i < n; i++)
-        mse = std::max<T>(mse, std::pow(x[i*incx] - y[i*incy], 2));
+    for (int mi = 0; mi < m; mi++)
+        for (int ni = 0; ni < n; ni++)
+            mse = std::max<T>(mse, std::pow(A[mi+ni*lda] - B[mi+ni*ldb], 2));
     return mse;
 }
 
@@ -77,7 +78,7 @@ int main() {
     std::generate(std::begin(B), std::end(B), std_normal);
     std::generate(std::begin(C), std::end(C), std_normal);
     t1 = clock::now();
-    std::cout << "alpha = " << alpha << ", beta = " << alpha << std::endl;
+    std::cout << "alpha = " << alpha << ", beta = " << beta << std::endl;
     std::cout << "A = " << A << std::endl;
     std::cout << "B = " << B << std::endl;
     std::cout << "C = " << C << std::endl;
@@ -119,7 +120,7 @@ int main() {
     BLAS_CHECK_ERROR(blasDestroy(handle));
     HIP_CHECK_ERROR(hipMemcpy(D2.data(), dD, m*n * sizeof(decltype(D2)::value_type), hipMemcpyDeviceToHost));
     std::cout << "alpha*A*B + beta*C = " << D2 << std::endl;
-    std::cout << "max_sqerr = " << host_max_squared_error(m*n, D1.data(), 1, D2.data(), 1) << std::endl;
+    std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D2.data(), m) << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 
