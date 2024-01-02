@@ -43,6 +43,24 @@ T host_max_squared_error(int m, int n, const T *A, int lda, const T *B, int ldb)
 }
 
 
+template <typename T>
+__global__
+void dev_gemm_v1(int m, int n, int k, T alpha, const T *A, int lda, const T *B, int ldb, T beta, T *C, int ldc) {
+    int tidx = threadIdx.x, ntidx = blockDim.x;
+    int tidy = threadIdx.y, ntidy = blockDim.y;
+    int ctaidx = blockIdx.x, nctaidx = gridDim.x;
+    int ctaidy = blockIdx.y, nctaidy = gridDim.y;
+    for (int mi = ctaidy*ntidy+tidy; mi < m; mi += ntidy*nctaidy) {
+        for (int ni = ctaidx*ntidx+tidx; ni < n; ni += ntidx*nctaidx) {
+            C[mi+ni*ldc] *= beta;
+            for (int ki = 0; ki < k; ki++) {
+                C[mi+ni*ldc] += alpha * A[mi+ki*lda] * B[ki+ni*ldb];
+            };
+        };
+    };
+}
+
+
 template <int N = 3, typename T>
 std::ostream &operator<<(std::ostream &os, std::vector<T> &v) {
     int i{0};
@@ -121,6 +139,21 @@ int main() {
     HIP_CHECK_ERROR(hipMemcpy(D2.data(), dD, m*n * sizeof(decltype(D2)::value_type), hipMemcpyDeviceToHost));
     std::cout << "alpha*A*B + beta*C = " << D2 << std::endl;
     std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D2.data(), m) << std::endl;
+    std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "Performing SGEMM (device v1)..." << std::endl;
+    std::vector<float> D3(m*n);
+    HIP_CHECK_ERROR(hipMemcpy(dD, dC, m*n * sizeof *dD, hipMemcpyDeviceToDevice));
+    dim3 group_dim{32,32};
+    dim3 grid_dim{64,64};
+    t0 = clock::now();
+    dev_gemm_v1<<<grid_dim,group_dim>>>(m, n, k, alpha, dA, m, dB, k, beta, dD, m);
+    HIP_CHECK_ERROR(hipDeviceSynchronize());
+    t1 = clock::now();
+    HIP_CHECK_ERROR(hipMemcpy(D3.data(), dD, m*n * sizeof(decltype(D3)::value_type), hipMemcpyDeviceToHost));
+    std::cout << "alpha*A*B + beta*C = " << D3 << std::endl;
+    std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D3.data(), m) << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 
