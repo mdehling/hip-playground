@@ -26,6 +26,15 @@ void host_axpy(int n, T alpha, const T *x, int incx, T *y, int incy) {
 
 
 template <typename T>
+T host_max_squared_error(int n, const T *x, int incx, const T *y, int incy) {
+    T mse{0};
+    for (int i = 0; i < n; i++)
+        mse = std::max<T>(mse, std::pow(x[i*incx] - y[i*incy], 2));
+    return mse;
+}
+
+
+template <typename T>
 __global__
 void dev_axpy(int n, T alpha, const T *x, int incx, T *y, int incy) {
     int tid = threadIdx.x, ntid = blockDim.x;
@@ -108,6 +117,7 @@ int main() {
     BLAS_CHECK_ERROR(blasDestroy(handle));
     HIP_CHECK_ERROR(hipMemcpy(z2.data(), dz, size * sizeof(decltype(z2)::value_type), hipMemcpyDeviceToHost));
     std::cout << "alpha*x + y = " << z2 << std::endl;
+    std::cout << "max_sqerr = " << host_max_squared_error(size, z1.data(), 1, z2.data(), 1) << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 
@@ -122,6 +132,7 @@ int main() {
     t1 = clock::now();
     HIP_CHECK_ERROR(hipMemcpy(z3.data(), dz, size * sizeof(decltype(z3)::value_type), hipMemcpyDeviceToHost));
     std::cout << "alpha*x + y = " << z3 << std::endl;
+    std::cout << "max_sqerr = " << host_max_squared_error(size, z1.data(), 1, z3.data(), 1) << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 
