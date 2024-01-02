@@ -46,16 +46,103 @@ T host_max_squared_error(int m, int n, const T *A, int lda, const T *B, int ldb)
 template <typename T>
 __global__
 void dev_gemm_v1(int m, int n, int k, T alpha, const T *A, int lda, const T *B, int ldb, T beta, T *C, int ldc) {
-    int tidx = threadIdx.x, ntidx = blockDim.x;
-    int tidy = threadIdx.y, ntidy = blockDim.y;
-    int ctaidx = blockIdx.x, nctaidx = gridDim.x;
-    int ctaidy = blockIdx.y, nctaidy = gridDim.y;
-    for (int mi = ctaidy*ntidy+tidy; mi < m; mi += ntidy*nctaidy) {
-        for (int ni = ctaidx*ntidx+tidx; ni < n; ni += ntidx*nctaidx) {
+    int tidm = threadIdx.y, ntidm = blockDim.y;
+    int tidn = threadIdx.x, ntidn = blockDim.x;
+    int ctaidm = blockIdx.y, nctaidm = gridDim.y;
+    int ctaidn = blockIdx.x, nctaidn = gridDim.x;
+
+    for (int mi = ctaidm*ntidm+tidm; mi < m; mi += ntidm*nctaidm) {
+        for (int ni = ctaidn*ntidn+tidn; ni < n; ni += ntidn*nctaidn) {
             C[mi+ni*ldc] *= beta;
             for (int ki = 0; ki < k; ki++) {
                 C[mi+ni*ldc] += alpha * A[mi+ki*lda] * B[ki+ni*ldb];
             };
+        };
+    };
+}
+
+
+template <int BLK_M=64, int BLK_N=64, int BLK_K=64, typename T>
+__global__
+void dev_gemm_v2(int m, int n, int k, T alpha, const T *A, int lda, const T *B, int ldb, T beta, T *C, int ldc) {
+    int tidm = threadIdx.y, ntidm = blockDim.y;
+    int tidn = threadIdx.x, ntidn = blockDim.x;
+    int ctaidm = blockIdx.y, nctaidm = gridDim.y;
+    int ctaidn = blockIdx.x, nctaidn = gridDim.x;
+
+    T __shared__ sA[BLK_M*BLK_K];
+    T __shared__ sB[BLK_K*BLK_N];
+    T __shared__ sC[BLK_M*BLK_N];
+
+    // for output blocks [mi0:mi0+BLK_M,ni0:ni0+BLK_N]
+    for (int mi0 = ctaidm*BLK_M; mi0 < m; mi0 += nctaidm*BLK_M) {
+        for (int ni0 = ctaidn*BLK_N; ni0 < n; ni0 += nctaidn*BLK_N) {
+
+            // colab init sC = beta*C[mi0:mi0+BLK_M,ni0:ni0+BLK_N]
+            for (int mi_ = tidm; mi_ < BLK_M; mi_ += ntidm) {
+                for (int ni_ = tidn; ni_ < BLK_N; ni_ += ntidn) {
+                    int mi = mi0+mi_, ni = ni0+ni_;
+                    if (mi < m && ni < n) {
+                        sC[mi_+ni_*BLK_M] = beta * C[mi+ni*ldc];
+                    } else {
+                        sC[mi_+ni_*BLK_M] = 0;
+                    };
+                };
+            };
+
+            // for input blocks [mi0:mi0+BLK_M,ki0:ki0+BLK_K], [ki0:ki0+BLK_K,ni0:ni0+BLK_N]
+            for (int ki0 = 0; ki0 < k; ki0 += BLK_K) {
+
+                // colab copy sA = A[mi0:mi0+BLK_M,ki0:ki0+BLK_K]
+                for (int mi_ = tidm; mi_ < BLK_M; mi_ += ntidm) {
+                    for (int ki_ = tidn; ki_ < BLK_K; ki_ += ntidn) {
+                        int mi = mi0+mi_, ki = ki0+ki_;
+                        if (mi < m && ki < k) {
+                            sA[mi_+ki_*BLK_M] = A[mi+ki*lda];
+                        } else {
+                            sA[mi_+ki_*BLK_M] = 0;
+                        };
+                    };
+                };
+                // colab copy sB = B[ki0:ki0+BLK_K,ni0:ni0+BLK_N]
+                for (int ki_ = tidm; ki_ < BLK_K; ki_ += ntidm) {
+                    for (int ni_ = tidn; ni_ < BLK_N; ni_ += ntidn) {
+                        int ki = ki0+ki_, ni = ni0+ni_;
+                        if (ki < k && ni < n) {
+                            sB[ki_+ni_*BLK_K] = B[ki+ni*ldb];
+                        } else {
+                            sB[ki_+ni_*BLK_K] = 0;
+                        };
+                    };
+                };
+
+                __syncthreads();
+
+                // colab compute sC += alpha * sA * sB
+                for (int mi_ = tidm; mi_ < BLK_M; mi_ += ntidm) {
+                    for (int ni_ = tidn; ni_ < BLK_N; ni_ += ntidn) {
+                        T AB = 0;
+                        for (int ki_ = 0; ki_ < BLK_K; ki_++) {
+                            AB += sA[mi_+ki_*BLK_M] * sB[ki_+ni_*BLK_K];
+                        };
+                        sC[mi_+ni_*BLK_M] += alpha * AB;
+                    };
+                };
+
+                __syncthreads();
+            };
+
+            // colab copy C[mi0:mi0+BLK_M,ni0:ni0+BLK_N] = sC
+            for (int mi_ = tidm; mi_ < BLK_M; mi_ += ntidm) {
+                for (int ni_ = tidn; ni_ < BLK_N; ni_ += ntidn) {
+                    int mi = mi0+mi_, ni = ni0+ni_;
+                    if (mi < m && ni < n) {
+                        C[mi+ni*ldc] = sC[mi_+ni_*BLK_M];
+                    };
+                };
+            };
+
+            __syncthreads();
         };
     };
 }
@@ -145,15 +232,30 @@ int main() {
     std::cout << "Performing SGEMM (device v1)..." << std::endl;
     std::vector<float> D3(m*n);
     HIP_CHECK_ERROR(hipMemcpy(dD, dC, m*n * sizeof *dD, hipMemcpyDeviceToDevice));
-    dim3 group_dim{32,32};
-    dim3 grid_dim{64,64};
+    dim3 group_dim_v1{32,32};
+    dim3 grid_dim_v1{64,64};
     t0 = clock::now();
-    dev_gemm_v1<<<grid_dim,group_dim>>>(m, n, k, alpha, dA, m, dB, k, beta, dD, m);
+    dev_gemm_v1<<<grid_dim_v1,group_dim_v1>>>(m, n, k, alpha, dA, m, dB, k, beta, dD, m);
     HIP_CHECK_ERROR(hipDeviceSynchronize());
     t1 = clock::now();
     HIP_CHECK_ERROR(hipMemcpy(D3.data(), dD, m*n * sizeof(decltype(D3)::value_type), hipMemcpyDeviceToHost));
     std::cout << "alpha*A*B + beta*C = " << D3 << std::endl;
     std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D3.data(), m) << std::endl;
+    std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "Performing SGEMM (device v2)..." << std::endl;
+    std::vector<float> D4(m*n);
+    HIP_CHECK_ERROR(hipMemcpy(dD, dC, m*n * sizeof *dD, hipMemcpyDeviceToDevice));
+    dim3 group_dim_v2{16,16};
+    dim3 grid_dim_v2{64,64};
+    t0 = clock::now();
+    dev_gemm_v2<<<grid_dim_v2,group_dim_v2>>>(m, n, k, alpha, dA, m, dB, k, beta, dD, m);
+    HIP_CHECK_ERROR(hipDeviceSynchronize());
+    t1 = clock::now();
+    HIP_CHECK_ERROR(hipMemcpy(D4.data(), dD, m*n * sizeof(decltype(D4)::value_type), hipMemcpyDeviceToHost));
+    std::cout << "alpha*A*B + beta*C = " << D4 << std::endl;
+    std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D4.data(), m) << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 
