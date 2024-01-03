@@ -174,8 +174,9 @@ int main() {
     std::normal_distribution<float> dist{};
     auto std_normal = [&dist, &gen]() { return dist(gen); };
 
-    std::cout << "Generating random matrices A, B, C on host..." << std::endl;
+    std::cout << "Generating random matrices A(m,k), B(k,n), C(m,n) on host..." << std::endl;
     int m = 1<<10, n = 1<<10, k = 1<<10;
+    std::cout << "(m = " << m << ", n = " << n << ", k = " << k << ")" << std::endl;
     float alpha = std_normal(), beta = std_normal();
     std::vector<float> A(m*k), B(k*n), C(m*n);
     t0 = clock::now();
