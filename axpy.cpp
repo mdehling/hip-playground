@@ -128,6 +128,7 @@ int main() {
     int grid_dim = 512;
     t0 = clock::now();
     dev_axpy<<<grid_dim,group_dim>>>(size, alpha, dx, 1, dz, 1);
+    HIP_CHECK_ERROR(hipGetLastError());
     HIP_CHECK_ERROR(hipDeviceSynchronize());
     t1 = clock::now();
     HIP_CHECK_ERROR(hipMemcpy(z3.data(), dz, size * sizeof(decltype(z3)::value_type), hipMemcpyDeviceToHost));

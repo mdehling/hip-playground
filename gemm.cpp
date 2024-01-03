@@ -237,6 +237,7 @@ int main() {
     dim3 grid_dim_v1{64,64};
     t0 = clock::now();
     dev_gemm_v1<<<grid_dim_v1,group_dim_v1>>>(m, n, k, alpha, dA, m, dB, k, beta, dD, m);
+    HIP_CHECK_ERROR(hipGetLastError());
     HIP_CHECK_ERROR(hipDeviceSynchronize());
     t1 = clock::now();
     HIP_CHECK_ERROR(hipMemcpy(D3.data(), dD, m*n * sizeof(decltype(D3)::value_type), hipMemcpyDeviceToHost));
@@ -248,10 +249,13 @@ int main() {
     std::cout << "Performing SGEMM (device v2)..." << std::endl;
     std::vector<float> D4(m*n);
     HIP_CHECK_ERROR(hipMemcpy(dD, dC, m*n * sizeof *dD, hipMemcpyDeviceToDevice));
+    // FIXME: It should be possible to run groups of 32*32 threads, but trying
+    // to do so results in a non-desript error below ("hip error: no error").
     dim3 group_dim_v2{16,16};
     dim3 grid_dim_v2{64,64};
     t0 = clock::now();
     dev_gemm_v2<<<grid_dim_v2,group_dim_v2>>>(m, n, k, alpha, dA, m, dB, k, beta, dD, m);
+    HIP_CHECK_ERROR(hipGetLastError());
     HIP_CHECK_ERROR(hipDeviceSynchronize());
     t1 = clock::now();
     HIP_CHECK_ERROR(hipMemcpy(D4.data(), dD, m*n * sizeof(decltype(D4)::value_type), hipMemcpyDeviceToHost));
