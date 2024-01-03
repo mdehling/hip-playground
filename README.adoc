@@ -1,0 +1,66 @@
+# HIP Playground
+Malte Dehling <mdehling@gmail.com>
+
+:rocm-install:      https://rocm.docs.amd.com/projects/install-on-linux/en/latest/index.html
+:hipblas-install:   https://rocm.docs.amd.com/projects/hipBLAS/en/latest/install.html
+:cuda-install:      https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
+
+This repository contains a few experiments in HIP kernel programming.
+
+Building
+--------
+You will need a working {rocm-install}[ROCm installation] and either a ROCm
+supported AMD graphics card or a CUDA capable NVIDIA graphics card.
+
+In case you are using an AMD graphics card, you will also need to
+{hipblas-install}[install hipBLAS].
+
+On NVIDIA hardware, a working {cuda-install}[CUDA installation] is required.
+Recent versions will come with cuBLAS included.
+
+The included devcontainer/docker config will take care of the above steps for
+you.  If you have access to the GitHub Codespaces GPU beta, you can simply
+create a codespace for the `dev` configuration with an NVIDIA V100.
+
+To build the experiments, simply run `make` and pass either `USE_HIPBLAS=1` or
+`USE_CUBLAS=1`.
+
+Running the Experiments
+-----------------------
+Simply run the generated executables and observe :)
+
+[source,shell-session]
+----
+$ ./gemm
+Generating random matrices A(m,k), B(k,n), C(m,n) on host...
+(m = 1024, n = 1024, k = 1024)
+alpha = 0.895763, beta = 1.15943
+A = [ -1.35167 1.47834 0.205337 ... ]
+B = [ -1.63824 0.0545521 -0.476742 ... ]
+C = [ 0.778804 0.369761 1.02369 ... ]
+dt = 280ms
+
+Performing SGEMM (host)...
+alpha*A*B + beta*C = [ 36.584 -11.2976 48.661 ... ]
+dt = 8959ms
+
+Allocating device memory and copying vectors...
+dt = 362ms
+
+Performing SGEMM (blas on device)...
+alpha*A*B + beta*C = [ 36.584 -11.2976 48.6611 ... ]
+max_sqerr = 4.24334e-08
+dt = 4ms
+
+Performing SGEMM (device v1)...
+alpha*A*B + beta*C = [ 36.584 -11.2976 48.661 ... ]
+max_sqerr = 2.85218e-09
+dt = 50ms
+
+Performing SGEMM (device v2)...
+alpha*A*B + beta*C = [ 36.584 -11.2976 48.661 ... ]
+max_sqerr = 3.63798e-08
+dt = 4ms
+
+Freeing device memory...
+----
