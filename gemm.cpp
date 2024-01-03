@@ -70,6 +70,12 @@ void dev_gemm_v2(int m, int n, int k, T alpha, const T *A, int lda, const T *B, 
     int ctaidm = blockIdx.y, nctaidm = gridDim.y;
     int ctaidn = blockIdx.x, nctaidn = gridDim.x;
 
+    //
+    // NOTE: Keep in mind that 48kb is the maximum amount of static shared
+    // memory. The default template parameters BLK_M = BLK_N = BLK_K = 64 work
+    // for T = float: 3*(64*64*4b) = 48kb but need to be adjust for, e.g.,
+    // matrices of doubles.
+    //
     T __shared__ sA[BLK_M*BLK_K];
     T __shared__ sB[BLK_K*BLK_N];
     T __shared__ sC[BLK_M*BLK_N];
