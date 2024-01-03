@@ -4,7 +4,8 @@ ifdef USE_HIPBLAS
 CFLAGS=-DUSE_HIPBLAS
 LD_FLAGS=-L/opt/rocm/lib
 LIBS=-lhipblas
-else
+else ifdef USE_CUBLAS
+CFLAGS=-DUSE_CUBLAS
 LIBS=-lcublas
 endif
 

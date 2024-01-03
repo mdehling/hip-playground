@@ -1,7 +1,7 @@
 #include <iostream>
 
 
-#ifdef USE_HIPBLAS
+#if defined(USE_HIPBLAS)
 
 #include <hipblas/hipblas.h>
 
@@ -18,7 +18,7 @@
 #define blasStatusToString  hipblasStatusToString
 #define BLAS_STATUS_SUCCESS HIPBLAS_STATUS_SUCCESS
 
-#else
+#elif defined(USE_CUBLAS)
 
 #include <cublas_v2.h>
 
@@ -35,6 +35,10 @@
 
 #define blasStatusToString  cublasGetStatusString
 #define BLAS_STATUS_SUCCESS CUBLAS_STATUS_SUCCESS
+
+#else
+
+#error "Must define one of USE_HIPBLAS or USE_CUBLAS."
 
 #endif
 
