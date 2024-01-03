@@ -1,7 +1,13 @@
+//
+// AXPY - Alpha times X Plus Y
+//
+// Given alpha, X[n], Y[n], computes
+//    Z = alpha * X + Y
+//
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <iomanip>
 #include <iostream>
 #include <random>
 #include <vector>
