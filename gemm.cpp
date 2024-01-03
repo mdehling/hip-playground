@@ -1,3 +1,10 @@
+//
+// GEMM - General Matrix Multiply
+//
+// Given alpha, A[m,k], B[k,n], beta, C[m,n], computes
+//    D = alpha * A * B + beta * C .
+//
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -18,7 +25,8 @@
 
 
 //
-// compute alpha * A[m,k] * B[k,n] + beta * C[m,n]
+// NOTE: This code is currently unused as it's too slow at the dimensions we
+// are considering for device functions.
 //
 template <typename T>
 void host_gemm(int m, int n, int k, T alpha, const T *A, int lda, const T *B, int ldb, T beta, T* C, int ldc) {
@@ -181,7 +189,7 @@ int main() {
     auto std_normal = [&dist, &gen]() { return dist(gen); };
 
     std::cout << "Generating random matrices A(m,k), B(k,n), C(m,n) on host..." << std::endl;
-    int m = 1<<10, n = 1<<10, k = 1<<10;
+    int m = 1<<12, n = 1<<12, k = 1<<12;
     std::cout << "(m = " << m << ", n = " << n << ", k = " << k << ")" << std::endl;
     float alpha = std_normal(), beta = std_normal();
     std::vector<float> A(m*k), B(k*n), C(m*n);
@@ -194,15 +202,6 @@ int main() {
     std::cout << "A = " << A << std::endl;
     std::cout << "B = " << B << std::endl;
     std::cout << "C = " << C << std::endl;
-    std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
-    std::cout << std::endl;
-
-    std::cout << "Performing SGEMM (host)..." << std::endl;
-    std::vector<float> D1(C);
-    t0 = clock::now();
-    host_gemm(m, n, k, alpha, A.data(), m, B.data(), k, beta, D1.data(), m);
-    t1 = clock::now();
-    std::cout << "alpha*A*B + beta*C = " << D1 << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 
@@ -221,7 +220,7 @@ int main() {
     std::cout << std::endl;
 
     std::cout << "Performing SGEMM (blas on device)..." << std::endl;
-    std::vector<float> D2(m*n);
+    std::vector<float> D1(m*n);
     HIP_CHECK_ERROR(hipMemcpy(dD, dC, m*n * sizeof *dD, hipMemcpyDeviceToDevice));
     blasHandle_t handle;
     BLAS_CHECK_ERROR(blasCreate(&handle));
@@ -230,14 +229,14 @@ int main() {
     HIP_CHECK_ERROR(hipDeviceSynchronize());
     t1 = clock::now();
     BLAS_CHECK_ERROR(blasDestroy(handle));
-    HIP_CHECK_ERROR(hipMemcpy(D2.data(), dD, m*n * sizeof(decltype(D2)::value_type), hipMemcpyDeviceToHost));
-    std::cout << "alpha*A*B + beta*C = " << D2 << std::endl;
-    std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D2.data(), m) << std::endl;
+    HIP_CHECK_ERROR(hipMemcpy(D1.data(), dD, m*n * sizeof(decltype(D1)::value_type), hipMemcpyDeviceToHost));
+    std::cout << "alpha*A*B + beta*C = " << D1 << std::endl;
+    //std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D1.data(), m) << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 
     std::cout << "Performing SGEMM (device v1)..." << std::endl;
-    std::vector<float> D3(m*n);
+    std::vector<float> D2(m*n);
     HIP_CHECK_ERROR(hipMemcpy(dD, dC, m*n * sizeof *dD, hipMemcpyDeviceToDevice));
     dim3 group_dim_v1{32,32};
     dim3 grid_dim_v1{64,64};
@@ -246,14 +245,14 @@ int main() {
     HIP_CHECK_ERROR(hipGetLastError());
     HIP_CHECK_ERROR(hipDeviceSynchronize());
     t1 = clock::now();
-    HIP_CHECK_ERROR(hipMemcpy(D3.data(), dD, m*n * sizeof(decltype(D3)::value_type), hipMemcpyDeviceToHost));
-    std::cout << "alpha*A*B + beta*C = " << D3 << std::endl;
-    std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D3.data(), m) << std::endl;
+    HIP_CHECK_ERROR(hipMemcpy(D2.data(), dD, m*n * sizeof(decltype(D2)::value_type), hipMemcpyDeviceToHost));
+    std::cout << "alpha*A*B + beta*C = " << D2 << std::endl;
+    std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D2.data(), m) << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 
     std::cout << "Performing SGEMM (device v2)..." << std::endl;
-    std::vector<float> D4(m*n);
+    std::vector<float> D3(m*n);
     HIP_CHECK_ERROR(hipMemcpy(dD, dC, m*n * sizeof *dD, hipMemcpyDeviceToDevice));
     // FIXME: It should be possible to run groups of 32*32 threads, but trying
     // to do so results in a non-desript error below ("hip error: no error").
@@ -264,9 +263,9 @@ int main() {
     HIP_CHECK_ERROR(hipGetLastError());
     HIP_CHECK_ERROR(hipDeviceSynchronize());
     t1 = clock::now();
-    HIP_CHECK_ERROR(hipMemcpy(D4.data(), dD, m*n * sizeof(decltype(D4)::value_type), hipMemcpyDeviceToHost));
-    std::cout << "alpha*A*B + beta*C = " << D4 << std::endl;
-    std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D4.data(), m) << std::endl;
+    HIP_CHECK_ERROR(hipMemcpy(D3.data(), dD, m*n * sizeof(decltype(D3)::value_type), hipMemcpyDeviceToHost));
+    std::cout << "alpha*A*B + beta*C = " << D3 << std::endl;
+    std::cout << "max_sqerr = " << host_max_squared_error(m, n, D1.data(), m, D3.data(), m) << std::endl;
     std::cout << "dt = " << ms_cast(t1-t0).count() << "ms" << std::endl;
     std::cout << std::endl;
 

@@ -33,34 +33,29 @@ Simply run the generated executables and observe :)
 ----
 $ ./gemm
 Generating random matrices A(m,k), B(k,n), C(m,n) on host...
-(m = 1024, n = 1024, k = 1024)
-alpha = 0.895763, beta = 1.15943
-A = [ -1.35167 1.47834 0.205337 ... ]
-B = [ -1.63824 0.0545521 -0.476742 ... ]
-C = [ 0.778804 0.369761 1.02369 ... ]
-dt = 280ms
-
-Performing SGEMM (host)...
-alpha*A*B + beta*C = [ 36.584 -11.2976 48.661 ... ]
-dt = 8959ms
+(m = 4096, n = 4096, k = 4096)
+alpha = 0.899897, beta = -1.31649
+A = [ -0.826929 -0.840805 -2.05935 ... ]
+B = [ -0.458748 1.45568 1.27641 ... ]
+C = [ 1.15914 0.144615 -1.51211 ... ]
+dt = 4453ms
 
 Allocating device memory and copying vectors...
-dt = 362ms
+dt = 389ms
 
 Performing SGEMM (blas on device)...
-alpha*A*B + beta*C = [ 36.584 -11.2976 48.6611 ... ]
-max_sqerr = 4.24334e-08
-dt = 4ms
+alpha*A*B + beta*C = [ -48.436 176.355 24.6866 ... ]
+dt = 15ms
 
 Performing SGEMM (device v1)...
-alpha*A*B + beta*C = [ 36.584 -11.2976 48.661 ... ]
-max_sqerr = 2.85218e-09
-dt = 50ms
+alpha*A*B + beta*C = [ -48.436 176.355 24.6866 ... ]
+max_sqerr = 9.53674e-07
+dt = 2907ms
 
 Performing SGEMM (device v2)...
-alpha*A*B + beta*C = [ 36.584 -11.2976 48.661 ... ]
-max_sqerr = 3.63798e-08
-dt = 4ms
+alpha*A*B + beta*C = [ -48.436 176.355 24.6866 ... ]
+max_sqerr = 1.23167e-07
+dt = 31ms
 
 Freeing device memory...
 ----
