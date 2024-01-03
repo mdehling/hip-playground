@@ -65,10 +65,10 @@ void dev_gemm_v1(int m, int n, int k, T alpha, const T *A, int lda, const T *B, 
 template <int BLK_M=64, int BLK_N=64, int BLK_K=64, typename T>
 __global__
 void dev_gemm_v2(int m, int n, int k, T alpha, const T *A, int lda, const T *B, int ldb, T beta, T *C, int ldc) {
-    int tidm = threadIdx.y, ntidm = blockDim.y;
-    int tidn = threadIdx.x, ntidn = blockDim.x;
-    int ctaidm = blockIdx.y, nctaidm = gridDim.y;
-    int ctaidn = blockIdx.x, nctaidn = gridDim.x;
+    int tidm = threadIdx.x, ntidm = blockDim.x;
+    int tidn = threadIdx.y, ntidn = blockDim.y;
+    int ctaidm = blockIdx.x, nctaidm = gridDim.x;
+    int ctaidn = blockIdx.y, nctaidn = gridDim.y;
 
     //
     // NOTE: Keep in mind that 48kb is the maximum amount of static shared
