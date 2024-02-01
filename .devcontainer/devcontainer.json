@@ -1,8 +1,6 @@
 {
     "name": "dev",
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
+    "image": "docker.io/mdehling/ubuntu-hip-dev:2024.02.01",
     "hostRequirements": {
         "cpus": 4,
         "memory": "32gb",
